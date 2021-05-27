@@ -1,6 +1,7 @@
 import { printSchema, buildSchema, parse, print } from 'graphql';
 import { GithubLoader } from '../src';
 import nock from 'nock'
+import { SCHEMA_QUERY, SCHEMA_QUERY_OPERATION_NAME } from '../src/SCHEMA_QUERY';
 
 const owner = 'kamilkisiela';
 const name = 'graphql-inspector-example';
@@ -64,17 +65,7 @@ test('load schema from GitHub', async () => {
 
   // query
   expect(normalize(query)).toEqual(
-    normalize(`
-      query GetGraphQLSchemaForGraphQLtools($owner: String!, $name: String!, $expression: String!) {
-        repository(owner: $owner, name: $name) {
-          object(expression: $expression) {
-            ... on Blob {
-              text
-            }
-          }
-        }
-      }
-    `),
+    normalize(SCHEMA_QUERY),
   );
 
   // variables
@@ -85,7 +76,7 @@ test('load schema from GitHub', async () => {
   });
 
   // name
-  expect(operationName).toEqual('GetGraphQLSchemaForGraphQLtools');
+  expect(operationName).toEqual(SCHEMA_QUERY_OPERATION_NAME);
 
   // schema
   expect(print(schema.document)).toEqual(printSchema(buildSchema(typeDefs)));

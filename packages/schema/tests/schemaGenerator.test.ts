@@ -130,7 +130,7 @@ describe('generating schema from shorthand', () => {
         resolvers: {},
       }),
     ).toThrowError(
-      'typeDef array must contain only strings, documents, or functions, got number',
+      'typeDefs must be a string, array or schema AST, got number',
     );
   });
 

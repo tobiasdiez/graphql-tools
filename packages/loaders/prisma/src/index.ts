@@ -61,11 +61,10 @@ export class PrismaLoader extends UrlLoader {
     }
     const token = definition.getToken(serviceName, stage);
     const url = cluster.getApiEndpoint(serviceName, stage, definition.getWorkspace() || undefined);
-    const headers = token
-      ? {
-          Authorization: `Bearer ${token}`,
-        }
-      : undefined;
-    return super.load(url, { headers });
+    const headers = options.headers || {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    return super.load(url, { ...options, headers });
   }
 }

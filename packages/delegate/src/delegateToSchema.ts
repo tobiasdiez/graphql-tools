@@ -15,11 +15,9 @@ import {
 
 import { ValueOrPromise } from 'value-or-promise';
 
-import AggregateError from '@ardatan/aggregate-error';
-
 import { getBatchingExecutor } from '@graphql-tools/batch-execute';
 
-import { mapAsyncIterator, ExecutionResult, Executor, ExecutionParams } from '@graphql-tools/utils';
+import { mapAsyncIterator, ExecutionResult, Executor, ExecutionParams, AggregateError } from '@graphql-tools/utils';
 
 import { IDelegateToSchemaOptions, IDelegateRequestOptions, SubschemaConfig, StitchingInfo, Transform } from './types';
 

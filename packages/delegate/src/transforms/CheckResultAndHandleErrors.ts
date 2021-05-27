@@ -7,9 +7,7 @@ import {
   locatedError,
 } from 'graphql';
 
-import AggregateError from '@ardatan/aggregate-error';
-
-import { getResponseKeyFromInfo, ExecutionResult, relocatedError } from '@graphql-tools/utils';
+import { getResponseKeyFromInfo, ExecutionResult, relocatedError, AggregateError } from '@graphql-tools/utils';
 
 import { SubschemaConfig, Transform, DelegationContext } from '../types';
 import { resolveExternalValue } from '../resolveExternalValue';

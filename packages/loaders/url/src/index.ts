@@ -31,6 +31,7 @@ import { ConnectionParamsOptions, SubscriptionClient as LegacySubscriptionClient
 import AbortController from 'abort-controller';
 import { meros } from 'meros';
 import { merge, set } from 'lodash';
+import { basename } from 'path';
 
 export type AsyncFetchFn = typeof import('cross-fetch').fetch;
 export type SyncFetchFn = (input: RequestInfo, init?: RequestInit) => SyncResponse;
@@ -159,11 +160,36 @@ export class UrlLoader implements DocumentLoader<LoadFromUrlOptions> {
       'variables',
       ((v: any) => isExtractableFile(v) || v?.promise || isAsyncIterable(v) || isPromise(v)) as any
     );
-    const map = Array.from(files.values()).reduce((prev, curr, currIndex) => {
-      prev[currIndex] = curr;
-      return prev;
-    }, {});
-    const uploads: any = new Map(Array.from(files.keys()).map((u, i) => [i, u]));
+    const filesFormDataInit: Record<string, { value: any; options?: FormData.AppendOptions }> = {};
+    const map: Record<string, string[]> = {};
+    await Promise.all(
+      Array.from(files).map(async ([u, fileNames]: [any, string[]], i) => {
+        const indice = i.toString();
+        map[indice] = fileNames;
+        if (isPromise(u)) {
+          u = await u;
+        }
+        if (u.promise) {
+          const upload = await u.promise;
+          const stream = upload.createReadStream();
+          filesFormDataInit[indice] = {
+            value: stream,
+            options: {
+              filename: upload.filename,
+              contentType: upload.mimetype,
+            },
+          };
+        } else {
+          filesFormDataInit[indice] = {
+            value: u,
+            options: {
+              filename: u.name || (u.path && basename(u.path)) || indice,
+              contentType: u.type,
+            },
+          };
+        }
+      })
+    );
     const form = new FormData();
     form.append(
       'operations',
@@ -173,30 +199,10 @@ export class UrlLoader implements DocumentLoader<LoadFromUrlOptions> {
       })
     );
     form.append('map', JSON.stringify(map));
-    await Promise.all(
-      Array.from(uploads.entries()).map(async ([i, u]) => {
-        if (isPromise(u)) {
-          u = await u;
-        }
-        if (u?.promise) {
-          const upload = await u.promise;
-          const stream = upload.createReadStream();
-          form.append(i.toString(), stream, {
-            filename: upload.filename,
-            contentType: upload.mimetype,
-          } as any);
-        } else {
-          form.append(
-            i.toString(),
-            u as any,
-            {
-              filename: 'name' in u ? u['name'] : i,
-              contentType: u.type,
-            } as any
-          );
-        }
-      })
-    );
+    for (const indice in filesFormDataInit) {
+      const { value, options } = filesFormDataInit[indice];
+      form.append(indice, value, options);
+    }
     return form;
   }
 
@@ -500,7 +506,7 @@ export class UrlLoader implements DocumentLoader<LoadFromUrlOptions> {
         return customFetch as any;
       }
     }
-    return async ? typeof fetch === 'undefined' ? crossFetch : fetch : syncFetch;
+    return async ? (typeof fetch === 'undefined' ? crossFetch : fetch) : syncFetch;
   }
 
   private getHeadersFromOptions(customHeaders: Headers, executionParams: ExecutionParams): Record<string, string> {
@@ -602,7 +608,8 @@ export class UrlLoader implements DocumentLoader<LoadFromUrlOptions> {
     const subscriptionsEndpoint = options.subscriptionsEndpoint || pointer;
     let subscriber: Subscriber;
     if (options.useSSEForSubscription) {
-      const asyncFetchFn: any = (...args: any[]) => this.getFetch(options?.customFetch, asyncImport, true).then((asyncFetch: any) => asyncFetch(...args));
+      const asyncFetchFn: any = (...args: any[]) =>
+        this.getFetch(options?.customFetch, asyncImport, true).then((asyncFetch: any) => asyncFetch(...args));
       subscriber = this.buildSSESubscriber(
         subscriptionsEndpoint,
         options.headers,

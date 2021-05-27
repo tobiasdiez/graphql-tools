@@ -1,6 +1,7 @@
 import { UniversalLoader, parseGraphQLSDL, parseGraphQLJSON, SingleFileOptions } from '@graphql-tools/utils';
 import { fetch } from 'cross-fetch';
 import { GraphQLTagPluckOptions, gqlPluckFromCodeString } from '@graphql-tools/graphql-tag-pluck';
+import { SCHEMA_QUERY, SCHEMA_QUERY_OPERATION_NAME } from './SCHEMA_QUERY';
 
 // github:owner/name#ref:path/to/file
 function extractData(
@@ -62,6 +63,7 @@ export class GithubLoader implements UniversalLoader<GithubLoaderOptions> {
 
   async load(pointer: string, options: GithubLoaderOptions) {
     const { owner, name, ref, path } = extractData(pointer);
+    const expression = `${ref}:${path}`;
     const request = await fetch('https://api.github.com/graphql', {
       method: 'POST',
       headers: {
@@ -69,40 +71,26 @@ export class GithubLoader implements UniversalLoader<GithubLoaderOptions> {
         Authorization: `bearer ${options.token}`,
       },
       body: JSON.stringify({
-        query: `
-          query GetGraphQLSchemaForGraphQLtools($owner: String!, $name: String!, $expression: String!) {
-            repository(owner: $owner, name: $name) {
-              object(expression: $expression) {
-                ... on Blob {
-                  text
-                }
-              }
-            }
-          }
-        `,
+        query: SCHEMA_QUERY,
         variables: {
           owner,
           name,
-          expression: ref + ':' + path,
+          expression,
         },
-        operationName: 'GetGraphQLSchemaForGraphQLtools',
+        operationName: SCHEMA_QUERY_OPERATION_NAME,
       }),
     });
-    const response = await request.json();
+    const { data, errors } = await request.json();
 
-    let errorMessage: string | null = null;
-
-    if (response.errors && response.errors.length > 0) {
-      errorMessage = response.errors.map((item: Error) => item.message).join(', ');
-    } else if (!response.data) {
-      errorMessage = response;
+    if (errors?.length) {
+      throw new AggregateError(errors);
     }
 
-    if (errorMessage) {
-      throw new Error('Unable to download schema from github: ' + errorMessage);
+    if (!data?.repository?.object?.text) {
+      throw new Error('Unable to download schema from GitHub');
     }
 
-    const content = response.data.repository.object.text;
+    const content = data.repository.object.text;
 
     if (/\.(gql|graphql)s?$/i.test(path)) {
       return parseGraphQLSDL(pointer, content, options);

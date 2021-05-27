@@ -81,7 +81,7 @@ export class GraphQLFileLoader implements UniversalLoader<GraphQLFileLoaderOptio
   canLoadSync(pointer: SchemaPointerSingle | DocumentPointerSingle, options: GraphQLFileLoaderOptions): boolean {
     if (isValidPath(pointer)) {
       if (FILE_EXTENSIONS.find(extension => pointer.endsWith(extension))) {
-        const normalizedFilePath = isAbsolute(pointer) ? pointer : resolve(options.cwd || processCwd(), pointer);
+        const normalizedFilePath = this.normalizeFilePath(pointer, options);
         try {
           accessSync(normalizedFilePath);
           return true;
@@ -94,15 +94,19 @@ export class GraphQLFileLoader implements UniversalLoader<GraphQLFileLoaderOptio
     return false;
   }
 
+  private normalizeFilePath(pointer: SchemaPointerSingle | DocumentPointerSingle, options: GraphQLFileLoaderOptions) {
+    return isAbsolute(pointer) ? pointer : resolve(options.cwd || processCwd(), pointer);
+  }
+
   async load(pointer: SchemaPointerSingle | DocumentPointerSingle, options: GraphQLFileLoaderOptions): Promise<Source> {
-    const normalizedFilePath = isAbsolute(pointer) ? pointer : resolve(options.cwd || processCwd(), pointer);
+    const normalizedFilePath = this.normalizeFilePath(pointer, options);
     const rawSDL: string = await readFile(normalizedFilePath, { encoding: 'utf8' });
 
     return this.handleFileContent(rawSDL, pointer, options);
   }
 
   loadSync(pointer: SchemaPointerSingle | DocumentPointerSingle, options: GraphQLFileLoaderOptions): Source {
-    const normalizedFilePath = isAbsolute(pointer) ? pointer : resolve(options.cwd || processCwd(), pointer);
+    const normalizedFilePath = this.normalizeFilePath(pointer, options);
     const rawSDL = readFileSync(normalizedFilePath, { encoding: 'utf8' });
     return this.handleFileContent(rawSDL, pointer, options);
   }

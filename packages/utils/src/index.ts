@@ -52,3 +52,4 @@ export * from './isDocumentNode';
 export * from './astFromValueUntyped';
 export * from './executor';
 export * from './withCancel';
+export * from './AggregateError';

@@ -13,7 +13,7 @@ import {
 import { CompareFn, defaultStringComparator, isSourceTypes, isStringTypes } from './utils';
 import { MergedResultMap, mergeGraphQLNodes, schemaDefSymbol } from './merge-nodes';
 import { resetComments, printWithComments } from './comments';
-import { getDocumentNodeFromSchema } from '@graphql-tools/utils';
+import { getDocumentNodeFromSchema, isDocumentNode } from '@graphql-tools/utils';
 import { operationTypeDefinitionNodeTypeRootTypeMap } from './schema-def';
 
 type Omit<T, K extends keyof any> = Pick<T, Exclude<keyof T, K>>;
@@ -72,23 +72,23 @@ export interface Config {
   ignoreFieldConflicts?: boolean;
 }
 
+export type TypeDefs =
+  | string
+  | Source
+  | DocumentNode
+  | GraphQLSchema
+  | DefinitionNode
+  | Array<TypeDefs>
+  | (() => TypeDefs);
+
 /**
  * Merges multiple type definitions into a single `DocumentNode`
  * @param types The type definitions to be merged
  */
-export function mergeTypeDefs(types: Array<string | Source | DocumentNode | GraphQLSchema>): DocumentNode;
-export function mergeTypeDefs(
-  types: Array<string | Source | DocumentNode | GraphQLSchema>,
-  config?: Partial<Config> & { commentDescriptions: true }
-): string;
-export function mergeTypeDefs(
-  types: Array<string | Source | DocumentNode | GraphQLSchema>,
-  config?: Omit<Partial<Config>, 'commentDescriptions'>
-): DocumentNode;
-export function mergeTypeDefs(
-  types: Array<string | Source | DocumentNode | GraphQLSchema>,
-  config?: Partial<Config>
-): DocumentNode | string {
+export function mergeTypeDefs(types: TypeDefs): DocumentNode;
+export function mergeTypeDefs(types: TypeDefs, config?: Partial<Config> & { commentDescriptions: true }): string;
+export function mergeTypeDefs(types: TypeDefs, config?: Omit<Partial<Config>, 'commentDescriptions'>): DocumentNode;
+export function mergeTypeDefs(types: TypeDefs, config?: Partial<Config>): DocumentNode | string {
   resetComments();
 
   const doc = {
@@ -115,33 +115,30 @@ export function mergeTypeDefs(
   return result;
 }
 
-function visitTypeSources(
-  types: Array<string | Source | DocumentNode | GraphQLSchema | DefinitionNode>,
-  allNodes: DefinitionNode[]
-) {
-  for (const type of types) {
-    if (type) {
-      if (Array.isArray(type)) {
-        visitTypeSources(type, allNodes);
-      } else if (isSchema(type)) {
-        const documentNode = getDocumentNodeFromSchema(type);
-        visitTypeSources(documentNode.definitions as DefinitionNode[], allNodes);
-      } else if (isStringTypes(type) || isSourceTypes(type)) {
-        const documentNode = parse(type);
-        visitTypeSources(documentNode.definitions as DefinitionNode[], allNodes);
-      } else if (isDefinitionNode(type)) {
-        allNodes.push(type);
-      } else {
-        visitTypeSources(type.definitions as DefinitionNode[], allNodes);
-      }
+function visitTypeSources(typeDefs: TypeDefs, allNodes: DefinitionNode[], visitedTypeDefs = new Set<TypeDefs>()) {
+  if (typeDefs && !visitedTypeDefs.has(typeDefs)) {
+    visitedTypeDefs.add(typeDefs);
+    if (typeof typeDefs === 'function') {
+      visitTypeSources(typeDefs(), allNodes, visitedTypeDefs);
+    } else if (Array.isArray(typeDefs)) {
+      typeDefs.forEach(typeDef => visitTypeSources(typeDef, allNodes, visitedTypeDefs));
+    } else if (isSchema(typeDefs)) {
+      const documentNode = getDocumentNodeFromSchema(typeDefs);
+      visitTypeSources(documentNode.definitions as DefinitionNode[], allNodes);
+    } else if (isStringTypes(typeDefs) || isSourceTypes(typeDefs)) {
+      const documentNode = parse(typeDefs);
+      visitTypeSources(documentNode.definitions as DefinitionNode[], allNodes, visitedTypeDefs);
+    } else if (isDefinitionNode(typeDefs)) {
+      allNodes.push(typeDefs);
+    } else if(isDocumentNode(typeDefs)) {
+      visitTypeSources(typeDefs.definitions as DefinitionNode[], allNodes, visitedTypeDefs);
+    } else {
+      throw new Error(`typeDefs must be a string, array or schema AST, got ${typeof typeDefs}`);
     }
   }
 }
 
-export function mergeGraphQLTypes(
-  types: Array<string | Source | DocumentNode | GraphQLSchema>,
-  config: Config
-): DefinitionNode[] {
+export function mergeGraphQLTypes(types: TypeDefs, config: Config): DefinitionNode[] {
   resetComments();
 
   const allNodes: DefinitionNode[] = [];

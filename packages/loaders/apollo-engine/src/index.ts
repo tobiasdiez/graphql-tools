@@ -1,6 +1,7 @@
-import { SchemaLoader, Source, SingleFileOptions } from '@graphql-tools/utils';
+import { SchemaLoader, Source, SingleFileOptions, AggregateError } from '@graphql-tools/utils';
 import { fetch } from 'cross-fetch';
 import { buildClientSchema } from 'graphql';
+import { SCHEMA_QUERY } from './SCHEMA_QUERY';
 
 /**
  * Additional options for loading from Apollo Engine
@@ -57,7 +58,11 @@ export class ApolloEngineLoader implements SchemaLoader<ApolloEngineOptions> {
     const { data, errors } = await response.json();
 
     if (errors) {
-      throw new Error(errors.map(({ message }: Error) => message).join('\n'));
+      throw new AggregateError(errors);
+    }
+
+    if (!data?.service?.schema) {
+      throw new Error('Unable to download schema from Apollo Engine');
     }
 
     return {
@@ -70,116 +75,3 @@ export class ApolloEngineLoader implements SchemaLoader<ApolloEngineOptions> {
     throw new Error('Loader ApolloEngine has no sync mode');
   }
 }
-
-/**
- * @internal
- */
-export const SCHEMA_QUERY = /* GraphQL */ `
-  query GetSchemaByTag($tag: String!, $id: ID!) {
-    service(id: $id) {
-      ... on Service {
-        __typename
-        schema(tag: $tag) {
-          hash
-          __schema: introspection {
-            queryType {
-              name
-            }
-            mutationType {
-              name
-            }
-            subscriptionType {
-              name
-            }
-            types(filter: { includeBuiltInTypes: true }) {
-              ...IntrospectionFullType
-            }
-            directives {
-              name
-              description
-              locations
-              args {
-                ...IntrospectionInputValue
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-
-  fragment IntrospectionFullType on IntrospectionType {
-    kind
-    name
-    description
-    fields {
-      name
-      description
-      args {
-        ...IntrospectionInputValue
-      }
-      type {
-        ...IntrospectionTypeRef
-      }
-      isDeprecated
-      deprecationReason
-    }
-    inputFields {
-      ...IntrospectionInputValue
-    }
-    interfaces {
-      ...IntrospectionTypeRef
-    }
-    enumValues(includeDeprecated: true) {
-      name
-      description
-      isDeprecated
-      deprecationReason
-    }
-    possibleTypes {
-      ...IntrospectionTypeRef
-    }
-  }
-
-  fragment IntrospectionInputValue on IntrospectionInputValue {
-    name
-    description
-    type {
-      ...IntrospectionTypeRef
-    }
-    defaultValue
-  }
-
-  fragment IntrospectionTypeRef on IntrospectionType {
-    kind
-    name
-    ofType {
-      kind
-      name
-      ofType {
-        kind
-        name
-        ofType {
-          kind
-          name
-          ofType {
-            kind
-            name
-            ofType {
-              kind
-              name
-              ofType {
-                kind
-                name
-                ofType {
-                  kind
-                  name
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-`;

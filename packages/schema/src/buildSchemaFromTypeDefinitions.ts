@@ -1,6 +1,6 @@
 import { extendSchema, buildASTSchema, GraphQLSchema, DocumentNode } from 'graphql';
 
-import { ITypeDefinitions, GraphQLParseOptions, parseGraphQLSDL, isDocumentNode } from '@graphql-tools/utils';
+import { ITypeDefinitions, GraphQLParseOptions, parseGraphQLSDL } from '@graphql-tools/utils';
 
 import { filterAndExtractExtensionDefinitions } from './extensionDefinitions';
 import { concatenateTypeDefs } from './concatenateTypeDefs';
@@ -32,17 +32,5 @@ export function buildDocumentFromTypeDefinitions(
   typeDefinitions: ITypeDefinitions,
   parseOptions?: GraphQLParseOptions
 ): DocumentNode {
-  let document: DocumentNode;
-  if (typeof typeDefinitions === 'string') {
-    document = parseGraphQLSDL('', typeDefinitions, parseOptions).document;
-  } else if (Array.isArray(typeDefinitions)) {
-    document = parseGraphQLSDL('', concatenateTypeDefs(typeDefinitions), parseOptions).document;
-  } else if (isDocumentNode(typeDefinitions)) {
-    document = typeDefinitions;
-  } else {
-    const type = typeof typeDefinitions;
-    throw new Error(`typeDefs must be a string, array or schema AST, got ${type}`);
-  }
-
-  return document;
+  return parseGraphQLSDL('', concatenateTypeDefs(typeDefinitions), parseOptions).document;
 }

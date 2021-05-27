@@ -42,7 +42,7 @@ export interface JsonFileLoaderOptions extends SingleFileOptions {}
  * });
  * ```
  */
-export class JsonFileLoader implements DocumentLoader {
+export class JsonFileLoader implements DocumentLoader<JsonFileLoaderOptions> {
   loaderId(): string {
     return 'json-file';
   }

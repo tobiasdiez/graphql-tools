@@ -10,8 +10,7 @@ import {
 
 import { ValueOrPromise } from 'value-or-promise';
 
-import { AsyncExecutor, Executor, SyncExecutor, ExecutionResult } from '@graphql-tools/utils';
-import AggregateError from '@ardatan/aggregate-error';
+import { AsyncExecutor, Executor, SyncExecutor, ExecutionResult, AggregateError } from '@graphql-tools/utils';
 
 function getSchemaFromIntrospection(introspectionResult: ExecutionResult<IntrospectionQuery>): GraphQLSchema {
   if (introspectionResult?.data?.__schema) {
